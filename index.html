@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Order to Chaos · Generative Art</title>
+  <meta name="description" content="Order to Chaos — a seed-based generative system of 80×80 grids that drift from regular order on the left to noise-driven disorder on the right. Rectangles, ellipses, and triangles in harmonic palettes, over a dim background with subtle glow. A reproducible catalogue of computational surface compositions." />
+  <meta name="theme-color" content="#0a0a0a" />
+  <link rel="icon" type="image/svg+xml" href="images/fav.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --bg-soft: #0f0f0e;
+      --paper: #f4f1ea;
+      --paper-soft: #ebe6db;
+      --ink: #141414;
+      --ink-soft: #5a5650;
+      --gold: #b8935a;
+      --gold-soft: #d4b483;
+      --gold-deep: #80633b;
+      --line: rgba(244, 241, 234, 0.10);
+      --line-dark: rgba(20, 20, 20, 0.14);
+      --text: rgba(244, 241, 234, 0.88);
+      --text-dim: rgba(244, 241, 234, 0.48);
+      --text-faint: rgba(244, 241, 234, 0.22);
+      --serif: "Cormorant Garamond", Georgia, serif;
+      --mono: "DM Mono", ui-monospace, monospace;
+      --page: min(1180px, calc(100% - 64px));
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: var(--bg); overflow-x: hidden; }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--mono);
+      font-size: 13px; line-height: 1.6;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden; width: 100%;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; }
+    img, canvas { display: block; max-width: 100%; height: auto; }
+    ::selection { background: var(--gold); color: var(--bg); }
+
+    .page { width: var(--page); margin: 0 auto; max-width: 100%; }
+    .eyebrow { display: inline-block; color: var(--gold-soft); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; }
+    .section { padding: 140px 0; border-top: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: 160px 1fr; gap: 40px; margin-bottom: 80px; align-items: baseline; }
+    .section-number { color: var(--text-faint); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; }
+    .section-title { font-family: var(--serif); font-size: clamp(2.6rem, 5.4vw, 4.8rem); font-weight: 300; line-height: 1.02; letter-spacing: -0.02em; color: var(--paper); }
+    .section-title em { font-style: italic; color: var(--gold-soft); }
+
+    .ribbon {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 20px; padding: 18px 32px;
+      background: rgba(10, 10, 10, 0.72);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--text-faint);
+    }
+    .ribbon-brand { font-family: var(--serif); font-size: 18px; letter-spacing: -0.01em; text-transform: none; color: var(--paper); flex-shrink: 0; }
+    .ribbon-brand em { color: var(--gold-soft); font-style: italic; }
+    .ribbon-nav { display: flex; gap: 28px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; flex-shrink: 1; min-width: 0; }
+    .ribbon-nav::-webkit-scrollbar { display: none; }
+    .ribbon-nav a { transition: color 300ms ease; white-space: nowrap; flex-shrink: 0; }
+    .ribbon-nav a:hover { color: var(--gold-soft); }
+    @media (max-width: 720px) {
+      .ribbon { padding: 12px 16px; gap: 14px; }
+      .ribbon-brand { font-size: 15px; }
+      .ribbon-nav { gap: 18px; font-size: 9px; mask-image: linear-gradient(to right, black 0, black calc(100% - 20px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 20px), transparent 100%); }
+    }
+
+    .cover { min-height: 100vh; min-height: 100dvh; padding: 120px 0 60px; display: flex; flex-direction: column; justify-content: space-between; gap: 60px; }
+    .cover-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-faint); }
+    .cover-meta .vol { color: var(--gold-soft); }
+    .cover-body { display: grid; grid-template-columns: 1fr; gap: 50px; align-items: center; flex: 1; }
+    @media (min-width: 900px) { .cover-body { grid-template-columns: 1.1fr 0.9fr; gap: 80px; } }
+    .cover-text { display: flex; flex-direction: column; gap: 32px; }
+    .cover-title { font-family: var(--serif); font-weight: 300; font-size: clamp(3.5rem, 8.5vw, 8rem); line-height: 0.92; letter-spacing: -0.03em; color: var(--paper); }
+    .cover-title em { font-style: italic; color: var(--gold-soft); display: block; }
+    .cover-sub { font-family: var(--serif); font-size: clamp(1.3rem, 1.9vw, 1.7rem); font-weight: 300; font-style: italic; line-height: 1.4; color: var(--text-dim); max-width: 500px; }
+    .cover-desc { color: var(--text-dim); font-size: 13px; line-height: 1.8; max-width: 460px; }
+    .cover-art { position: relative; aspect-ratio: 1; background: #000; border: 1px solid var(--line); overflow: hidden; max-width: 520px; margin-left: auto; width: 100%; }
+    .canvas-slot { position: absolute; inset: 0; overflow: hidden; }
+    .canvas-slot canvas {
+      display: block !important;
+      position: absolute !important;
+      top: 0 !important; left: 0 !important;
+      width: 100% !important; height: 100% !important;
+      max-width: 100% !important; max-height: 100% !important;
+    }
+    .cover-foot { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; padding-top: 32px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-faint); }
+    .cover-foot .k { display: block; color: var(--gold-soft); margin-bottom: 8px; }
+    .cover-foot .v { color: var(--text-dim); letter-spacing: 0.1em; line-height: 1.7; }
+    @media (max-width: 720px) {
+      .cover { padding: 100px 0 40px; gap: 40px; }
+      .cover-title { font-size: clamp(3rem, 16vw, 5rem); }
+      .cover-art { margin: 0 auto; }
+      .cover-foot { grid-template-columns: 1fr; gap: 20px; }
+    }
+
+    .statement { background: var(--bg-soft); border-top: 1px solid var(--line); padding: 140px 0; }
+    .statement-inner { display: grid; grid-template-columns: 200px 1fr; gap: 60px; align-items: start; }
+    .statement-label { position: sticky; top: 100px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold-soft); }
+    .statement-label .num { display: block; color: var(--text-faint); margin-bottom: 8px; }
+    .statement-body { max-width: 720px; display: flex; flex-direction: column; gap: 28px; }
+    .statement-lead { font-family: var(--serif); font-size: clamp(1.6rem, 3vw, 2.6rem); font-weight: 300; line-height: 1.25; letter-spacing: -0.01em; color: var(--paper); }
+    .statement-lead em { font-style: italic; color: var(--gold-soft); }
+    .statement-body p { color: var(--text-dim); font-size: 13.5px; line-height: 1.9; max-width: 62ch; }
+    .statement-body p strong { color: var(--text); font-weight: 500; }
+    .statement-ai { margin-top: 24px; padding: 22px 26px; border-left: 2px solid var(--gold); background: rgba(184, 147, 90, 0.04); color: var(--text-dim); font-size: 12.5px; line-height: 1.8; font-style: italic; }
+    .statement-ai strong { color: var(--gold-soft); font-style: normal; font-weight: 500; letter-spacing: 0.02em; }
+    @media (max-width: 900px) { .statement { padding: 90px 0; } .statement-inner { grid-template-columns: 1fr; gap: 28px; } .statement-label { position: static; } }
+    @media (max-width: 720px) { .statement { padding: 72px 0; } .statement-ai { padding: 18px 20px; font-size: 12px; } }
+
+    .work-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.75fr); gap: 80px; align-items: center; }
+    @media (max-width: 900px) { .work-layout { grid-template-columns: 1fr; gap: 56px; } }
+    .art-stage { position: relative; background: #000; border: 1px solid var(--line); aspect-ratio: 1; overflow: hidden; }
+    .work-info { display: flex; flex-direction: column; gap: 32px; }
+    .work-index { color: var(--gold-soft); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; }
+    .work-title { font-family: var(--serif); font-size: clamp(2.4rem, 3.6vw, 3.6rem); font-weight: 300; line-height: 1.02; letter-spacing: -0.02em; color: var(--paper); }
+    .work-title em { display: block; font-style: italic; color: var(--gold-soft); }
+    .work-description { color: var(--text-dim); font-size: 12.5px; line-height: 1.8; max-width: 40ch; }
+    .metadata { border-top: 1px solid var(--line); }
+    .meta-row { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+    .meta-label { color: var(--text-faint); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
+    .meta-value { color: var(--paper); font-family: var(--serif); font-size: 16px; font-weight: 400; text-align: right; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; }
+    .btn { appearance: none; background: transparent; border: 1px solid var(--line); color: var(--text-dim); min-height: 46px; padding: 0 24px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer; transition: color 300ms ease, border-color 300ms ease, background 300ms ease; display: inline-flex; align-items: center; justify-content: center; }
+    .btn:hover { color: var(--paper); border-color: var(--gold); }
+    .btn.primary { color: var(--gold-soft); border-color: var(--gold); }
+    .btn.primary:hover { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+    @media (max-width: 720px) { .controls { width: 100%; } .btn { flex: 1; padding: 0 16px; } }
+
+    .application { background: var(--paper); color: var(--ink); border-top: 0; padding: 140px 0; }
+    .application .section-number { color: rgba(20, 20, 20, 0.4); }
+    .application .section-title { color: var(--ink); }
+    .application .section-title em { color: var(--gold-deep); }
+    .application-intro { max-width: 640px; margin: 0 0 80px auto; font-family: var(--serif); font-size: clamp(1.5rem, 2.4vw, 2.2rem); font-weight: 300; line-height: 1.25; letter-spacing: -0.01em; color: var(--ink); }
+    .application-intro span { color: var(--ink-soft); font-style: italic; }
+    .framed-plate { position: relative; width: 100%; padding: 80px 40px; display: flex; align-items: center; justify-content: center; background: var(--paper-soft); border: 1px solid var(--line-dark); }
+    .framed-plate::before { content: "PLATE 008 / ARCHIVAL PRINT"; position: absolute; top: 24px; left: 28px; color: rgba(20, 20, 20, 0.42); font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; }
+    .framed-plate::after { content: "ORDER TO CHAOS × REYROVE"; position: absolute; right: 28px; bottom: 24px; color: rgba(20, 20, 20, 0.42); font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; }
+    .frame-inner { position: relative; padding: 28px; background: var(--paper); box-shadow: 0 1px 0 rgba(20,20,20,0.06), 0 20px 60px rgba(20,20,20,0.14), 0 4px 14px rgba(20,20,20,0.08); max-width: 560px; width: 100%; }
+    .frame-inner::before { content: ""; position: absolute; inset: 14px; border: 1px solid rgba(20, 20, 20, 0.18); pointer-events: none; z-index: 2; }
+    .frame-art { position: relative; aspect-ratio: 1; background: #000; width: 100%; overflow: hidden; }
+    .frame-caption { margin-top: 20px; display: flex; justify-content: space-between; align-items: baseline; gap: 20px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(20, 20, 20, 0.5); }
+    .frame-caption .id { color: var(--gold-deep); }
+
+    .surface-head { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 100px; margin-bottom: 48px; padding-bottom: 24px; border-bottom: 1px solid var(--line-dark); align-items: baseline; }
+    .surface-head h3 { font-family: var(--serif); font-size: clamp(1.6rem, 2.4vw, 2.2rem); font-weight: 300; line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); }
+    .surface-head h3 em { font-style: italic; color: var(--gold-deep); }
+    .surface-head p { max-width: 44ch; color: var(--ink-soft); font-size: 12.5px; line-height: 1.75; }
+    .surface-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line-dark); border: 1px solid var(--line-dark); }
+    .surface-item { background: var(--paper); padding: 28px 24px 22px; display: flex; flex-direction: column; gap: 18px; }
+    .surface-item .surface-label { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(20, 20, 20, 0.5); }
+    .surface-item .surface-label .num { color: var(--gold-deep); }
+    .surface-item .surface-canvas-wrap { position: relative; width: 100%; background: #000; overflow: hidden; }
+    .surface-item .surface-title { font-family: var(--serif); font-size: 18px; font-weight: 400; line-height: 1.2; color: var(--ink); }
+    .surface-item .surface-meta { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(20, 20, 20, 0.45); }
+    @media (max-width: 1000px) { .surface-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 720px) {
+      .application { padding: 72px 0; }
+      .application-intro { margin-left: 0; margin-bottom: 48px; }
+      .framed-plate { padding: 32px 12px; }
+      .framed-plate::before { top: 14px; left: 16px; font-size: 8px; }
+      .framed-plate::after { right: 16px; bottom: 14px; font-size: 8px; }
+      .frame-inner { padding: 14px; }
+      .frame-caption { font-size: 8px; gap: 10px; flex-wrap: wrap; }
+      .surface-head { grid-template-columns: 1fr; gap: 16px; margin-top: 56px; }
+      .surface-grid { grid-template-columns: 1fr; }
+    }
+
+    .process-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .process-card { min-height: 340px; padding: 44px 40px; background: var(--bg); display: flex; flex-direction: column; }
+    .process-number { color: var(--gold); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
+    .process-card h3 { margin: auto 0 20px; font-family: var(--serif); font-size: 2.2rem; font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; color: var(--paper); }
+    .process-card p { max-width: 300px; color: var(--text-dim); font-size: 12.5px; line-height: 1.8; }
+    @media (max-width: 900px) { .process-grid { grid-template-columns: 1fr; } .process-card { min-height: auto; padding: 36px 32px; } .process-card h3 { margin-top: 32px; } }
+    @media (max-width: 720px) { .process-card { padding: 28px 24px; } }
+
+    .archive-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .archive-item { position: relative; background: var(--bg); aspect-ratio: 1; cursor: pointer; overflow: hidden; transition: opacity 300ms ease; }
+    .archive-item::after { content: attr(data-seed); position: absolute; bottom: 12px; left: 12px; color: rgba(244, 241, 234, 0.4); font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; transition: color 300ms ease; z-index: 3; }
+    .archive-item:hover::after { color: var(--gold-soft); }
+    .archive-note { margin-top: 32px; display: flex; justify-content: space-between; align-items: baseline; gap: 24px; flex-wrap: wrap; color: var(--text-faint); font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
+    .archive-note .hint { color: var(--gold-soft); }
+    @media (max-width: 900px) { .archive-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .commission { background: var(--bg-soft); padding: 140px 0; border-top: 1px solid var(--line); }
+    .commission-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 100px; align-items: center; }
+    .commission-title { margin-top: 26px; font-family: var(--serif); font-size: clamp(3rem, 5.6vw, 5.6rem); font-weight: 300; line-height: 0.98; letter-spacing: -0.03em; color: var(--paper); }
+    .commission-title em { font-style: italic; color: var(--gold-soft); }
+    .commission-copy { max-width: 440px; color: var(--text-dim); font-size: 12.5px; line-height: 1.85; margin-bottom: 44px; }
+    .service-list { border-top: 1px solid var(--line); margin-bottom: 48px; }
+    .service-item { display: grid; grid-template-columns: 44px 1fr; gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+    .service-item .num { color: var(--gold); font-size: 10px; letter-spacing: 0.22em; }
+    .service-item .title { display: block; color: var(--paper); font-family: var(--serif); font-size: 20px; font-weight: 400; margin-bottom: 4px; }
+    .service-item .desc { color: var(--text-dim); font-size: 12px; line-height: 1.7; max-width: 40ch; }
+    .contact-cta { display: inline-flex; align-items: center; justify-content: center; min-height: 54px; padding: 0 32px; background: var(--gold); color: var(--ink); font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; transition: background 300ms ease; }
+    .contact-cta:hover { background: var(--gold-soft); }
+    @media (max-width: 900px) { .commission { padding: 90px 0; } .commission-layout { grid-template-columns: 1fr; gap: 60px; } }
+    @media (max-width: 720px) { .commission { padding: 72px 0; } .commission-layout { gap: 48px; } .contact-cta { width: 100%; } }
+
+    .mockup-gallery { margin-top: 120px; padding-top: 80px; border-top: 1px solid var(--line); }
+    .mockup-head { display: grid; grid-template-columns: 160px 1fr; gap: 40px; margin-bottom: 60px; align-items: baseline; }
+    .mockup-title { font-family: var(--serif); font-size: clamp(2rem, 3.4vw, 3.2rem); font-weight: 300; line-height: 1.05; letter-spacing: -0.02em; color: var(--paper); }
+    .mockup-title em { font-style: italic; color: var(--gold-soft); }
+    .mockup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+    .mockup-item { display: flex; flex-direction: column; gap: 16px; }
+    .mockup-frame { position: relative; aspect-ratio: 4 / 3; background: #000; border: 1px solid var(--line); overflow: hidden; }
+    .mockup-frame img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 800ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .mockup-item:hover .mockup-frame img { transform: scale(1.04); }
+    .mockup-item figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-top: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
+    .mockup-id { color: var(--paper); }
+    .mockup-seed { color: var(--gold-soft); }
+    .mockup-note { margin-top: 48px; max-width: 56ch; color: var(--text-dim); font-family: var(--serif); font-size: 1.15rem; font-style: italic; line-height: 1.6; }
+    @media (max-width: 900px) { .mockup-gallery { margin-top: 80px; padding-top: 56px; } .mockup-head { grid-template-columns: 1fr; gap: 16px; margin-bottom: 40px; } .mockup-grid { grid-template-columns: 1fr; gap: 24px; } }
+
+    .colophon { padding: 80px 0 60px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 40px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.20em; text-transform: uppercase; color: var(--text-faint); }
+    .colophon .col-mark { display: block; font-family: var(--serif); font-size: 22px; font-style: italic; letter-spacing: 0; text-transform: none; color: var(--paper); margin-bottom: 12px; }
+    .colophon .col-mark em { color: var(--gold-soft); }
+    .colophon .col p { color: var(--text-dim); font-size: 11px; letter-spacing: 0.1em; text-transform: none; line-height: 1.8; max-width: 30ch; }
+    .colophon .col-title { display: block; color: var(--gold-soft); margin-bottom: 16px; }
+    .colophon .col a { display: block; color: var(--text-dim); line-height: 2.1; transition: color 300ms ease; letter-spacing: 0.14em; word-break: break-word; }
+    .colophon .col a:hover { color: var(--gold-soft); }
+    .colophon-end { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 32px; margin-top: 32px; display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; color: var(--text-faint); }
+    .colophon-end .mark { color: var(--gold-soft); font-family: var(--serif); font-size: 14px; font-style: italic; letter-spacing: 0; text-transform: none; }
+    @media (max-width: 900px) { .colophon { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) { .colophon { grid-template-columns: 1fr 1fr; gap: 24px; } }
+    @media (max-width: 380px) { .colophon { grid-template-columns: 1fr; gap: 28px; } }
+
+    .legal-modal { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 24px; }
+    .legal-modal.open { display: flex; }
+    .legal-overlay { position: absolute; inset: 0; background: rgba(10, 10, 10, 0.78); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: legalFade 280ms ease; }
+    .legal-dialog { position: relative; width: min(560px, 100%); max-height: 82vh; overflow-y: auto; background: var(--bg-soft); border: 1px solid var(--line); padding: 48px 44px 32px; animation: legalRise 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .legal-close { position: absolute; top: 14px; right: 18px; background: transparent; border: 0; color: var(--text-faint); font-size: 26px; line-height: 1; cursor: pointer; transition: color 300ms ease; }
+    .legal-close:hover { color: var(--gold-soft); }
+    .legal-eyebrow { display: inline-block; color: var(--gold-soft); font-family: var(--mono); font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase; margin-bottom: 14px; }
+    .legal-title { font-family: var(--serif); font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; color: var(--paper); margin-bottom: 24px; }
+    .legal-body { color: var(--text-dim); font-family: var(--mono); font-size: 12.5px; line-height: 1.9; }
+    .legal-body p { margin-bottom: 14px; }
+    .legal-body p:last-child { margin-bottom: 0; }
+    .legal-body strong { color: var(--text); font-weight: 500; }
+    .legal-foot { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-faint); }
+    .legal-foot a { color: var(--gold-soft); word-break: break-all; }
+    @keyframes legalFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes legalRise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 560px) { .legal-dialog { padding: 40px 24px 24px; } }
+
+    @media (max-width: 720px) {
+      :root { --page: min(1180px, calc(100% - 32px)); }
+      .section { padding: 72px 0; }
+      .section-head { grid-template-columns: 1fr; gap: 12px; margin-bottom: 48px; }
+      .section-title { font-size: clamp(2rem, 8vw, 3rem); }
+    }
+    @media (max-width: 400px) { :root { --page: min(1180px, calc(100% - 24px)); } }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: 0.001ms !important; animation-duration: 0.001ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="ribbon">
+  <span class="ribbon-brand">Order to <em>Chaos</em></span>
+  <div class="ribbon-nav">
+    <a href="#statement">Statement</a>
+    <a href="#work">Plate</a>
+    <a href="#application">Surfaces</a>
+    <a href="#archive">Archive</a>
+    <a href="#commission">Commission</a>
+  </div>
+</nav>
+
+<header class="cover page">
+  <div class="cover-meta">
+    <span class="vol">Order to Chaos — Catalogue</span>
+    <span>80 × 80 Cells · Gradient Blend · Seed-Based</span>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-text">
+      <span class="eyebrow">A study in gradual disorder</span>
+      <h1 class="cover-title">
+        Order to
+        <em>Chaos</em>
+      </h1>
+      <p class="cover-sub">
+        An 80 × 80 grid that drifts from regular order on the left
+        to noise-driven disorder on the right. Rectangles, ellipses,
+        triangles in harmonic palettes.
+      </p>
+      <p class="cover-desc">
+        For fashion houses, textile studios and surface designers.
+        Each composition is generated from a numeric seed and
+        can be licensed, adapted or commissioned to your brief.
+      </p>
+    </div>
+
+    <div class="cover-art">
+      <div class="canvas-slot" id="cover-slot"></div>
+    </div>
+  </div>
+
+  <div class="cover-foot">
+    <div>
+      <span class="k">Issue</span>
+      <span class="v">Order to Chaos — Autumn 2026</span>
+    </div>
+    <div>
+      <span class="k">Discipline</span>
+      <span class="v">Generative Grid Composition</span>
+    </div>
+    <div>
+      <span class="k">Edition</span>
+      <span class="v">Seed-based · Open series</span>
+    </div>
+  </div>
+</header>
+
+<section class="statement" id="statement">
+  <div class="page">
+    <div class="statement-inner">
+      <div class="statement-label">
+        <span class="num">00 / Statement</span>
+        Artist Statement
+      </div>
+      <div class="statement-body">
+        <p class="statement-lead">
+          A grid drawn along a gradient becomes
+          <em>a field that forgets its own rules.</em>
+        </p>
+        <p>
+          I am an Iranian-born artist working at the intersection of
+          mosaic logic and generative systems. My work begins with a
+          simple observation: the tiled surface — repetitive,
+          mathematically structured, infinitely variable — has always
+          been a form of computation, long before computers.
+        </p>
+        <p>
+          <strong>Order to Chaos</strong> renders an 80 × 80 grid
+          whose cells drift along a horizontal gradient. On the left,
+          cells are lit or dark according to a strict sine/cosine
+          lattice modulated by a radial field — regular, rhythmic,
+          almost architectural. On the right, cells follow 2D Perlin
+          noise plus a random chaos term — scattered, irregular,
+          almost organic. Between the two, the blend factor slides
+          smoothly from order to disorder.
+        </p>
+        <p>
+          Every lit cell draws itself as a rectangle, an ellipse, or
+          a triangle, in a small harmonic palette generated per seed:
+          complementary, analogous, or triadic. A dim background wash
+          and a scattered glow effect complete the composition. Each
+          piece is defined by a numeric seed and can be regenerated,
+          documented, and adapted for print, textile, and surface
+          applications.
+        </p>
+        <div class="statement-ai">
+          <strong>On AI tools —</strong> where I encountered technical
+          obstacles, I turned to AI tools for debugging and code
+          optimization. Every structural, aesthetic, and conceptual
+          decision remained my own.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section page" id="work">
+  <div class="section-head">
+    <span class="section-number">01 / Plate</span>
+    <h2 class="section-title">
+      One gradient,<br />
+      infinite <em>seeds.</em>
+    </h2>
+  </div>
+
+  <div class="work-layout">
+    <div class="art-stage">
+      <div class="canvas-slot" id="plate-slot"></div>
+    </div>
+
+    <aside class="work-info">
+      <span class="work-index">Order to Chaos · Catalogue Entry 008</span>
+      <h3 class="work-title">
+        Order to Chaos
+        <em>Generative System</em>
+      </h3>
+      <p class="work-description">
+        An 80 × 80 grid that drifts from regular order on the left
+        to noise-driven disorder on the right. Lit cells draw
+        themselves as rectangles, ellipses, or triangles, in a
+        small harmonic palette. Each entry is generated from a seed.
+      </p>
+
+      <div class="metadata">
+        <div class="meta-row">
+          <span class="meta-label">Seed</span>
+          <span class="meta-value" id="seedDisplay">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Harmony</span>
+          <span class="meta-value" id="harmonyDisplay">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Palette</span>
+          <span class="meta-value" id="paletteDisplay">—</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Output</span>
+          <span class="meta-value">PNG · Screen-res · Web</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Edition</span>
+          <span class="meta-value">Open Series</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="controlsBar" type="button">New Seed</button>
+        <button class="btn" id="saveBtn" type="button">Download</button>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="application" id="application">
+  <div class="page">
+    <div class="section-head">
+      <span class="section-number">02 / Surfaces</span>
+      <h2 class="section-title">
+        One gradient.<br />
+        <em>Many surfaces.</em>
+      </h2>
+    </div>
+
+    <p class="application-intro">
+      The same seed, presented as an archival print —
+      <span>and applied across fabric, scarf, textile and wall surfaces
+      without loss of structure.</span>
+    </p>
+
+    <div class="framed-plate">
+      <div class="frame-inner">
+        <div class="frame-art">
+          <div class="canvas-slot" id="frame-slot"></div>
+        </div>
+        <div class="frame-caption">
+          <span class="id">Plate 008</span>
+          <span>Archival print · 1 : 1 · Open edition</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="surface-head">
+      <h3>Applied across <em>surfaces.</em></h3>
+      <p>
+        Every surface below is drawn from the same numeric seed —
+        its repeat, orientation and scale adapted to the material,
+        while the underlying structural logic remains identical.
+      </p>
+    </div>
+
+    <div class="surface-grid">
+      <div class="surface-item">
+        <div class="surface-label"><span class="num">i</span><span>Print</span></div>
+        <div class="surface-canvas-wrap" id="wrap-surfacePrint" style="aspect-ratio: 1;"></div>
+        <div class="surface-title">Archival print</div>
+        <div class="surface-meta">1 : 1 · Cotton rag</div>
+      </div>
+
+      <div class="surface-item">
+        <div class="surface-label"><span class="num">ii</span><span>Scarf</span></div>
+        <div class="surface-canvas-wrap" id="wrap-surfaceScarf" style="aspect-ratio: 3 / 1;"></div>
+        <div class="surface-title">Silk scarf</div>
+        <div class="surface-meta">3 : 1 · Twill silk</div>
+      </div>
+
+      <div class="surface-item">
+        <div class="surface-label"><span class="num">iii</span><span>Textile</span></div>
+        <div class="surface-canvas-wrap" id="wrap-surfaceTextile" style="aspect-ratio: 4 / 3;"></div>
+        <div class="surface-title">Fabric yardage</div>
+        <div class="surface-meta">4 : 3 · Repeat tile</div>
+      </div>
+
+      <div class="surface-item">
+        <div class="surface-label"><span class="num">iv</span><span>Wall</span></div>
+        <div class="surface-canvas-wrap" id="wrap-surfaceWall" style="aspect-ratio: 2 / 3;"></div>
+        <div class="surface-title">Wallpaper</div>
+        <div class="surface-meta">2 : 3 · Vertical repeat</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section page" id="process">
+  <div class="section-head">
+    <span class="section-number">03 / Process</span>
+    <h2 class="section-title">
+      Structure<br />
+      behind the <em>gradient.</em>
+    </h2>
+  </div>
+
+  <div class="process-grid">
+    <article class="process-card">
+      <span class="process-number">01 / Order</span>
+      <h3>Lattice &amp; Rings</h3>
+      <p>
+        On the left edge, cells follow a strict lattice:
+        a product of two sines and cosines at 10× frequency, plus
+        a radial field modulated by a two-period sine. The result
+        is regular, rhythmic, almost architectural — a woven
+        surface in the classical sense.
+      </p>
+    </article>
+
+    <article class="process-card">
+      <span class="process-number">02 / Chaos</span>
+      <h3>Noise &amp; Random</h3>
+      <p>
+        On the right edge, cells follow 2D Perlin noise at 5×
+        frequency, plus a flat random chaos term of up to 0.6.
+        The result is scattered, irregular, almost organic — no
+        two rows alike. Between the two edges, a horizontal blend
+        factor `t = i / (cols − 1)` slides smoothly from order
+        to disorder.
+      </p>
+    </article>
+
+    <article class="process-card">
+      <span class="process-number">03 / Shapes</span>
+      <h3>Three Forms</h3>
+      <p>
+        Each lit cell draws itself as one of three shapes —
+        rectangle, ellipse, or triangle — at a random size
+        (0.4–1.6× cell), a random rotation (up to 90°), and a
+        colour drawn from a small harmonic palette. Complementary,
+        analogous, or triadic harmony is chosen per seed.
+      </p>
+    </article>
+  </div>
+</section>
+
+<section class="section page" id="archive">
+  <div class="section-head">
+    <span class="section-number">04 / Archive</span>
+    <h2 class="section-title">
+      Selected<br />
+      <em>seeds.</em>
+    </h2>
+  </div>
+  <div class="archive-grid" id="archiveGrid"></div>
+  <div class="archive-note">
+    <span>8 compositions · Open series</span>
+    <span class="hint">Click any plate to load it above</span>
+  </div>
+</section>
+
+<section class="commission" id="commission">
+  <div class="page">
+    <div class="commission-layout">
+      <div>
+        <span class="eyebrow">For brands &amp; studios</span>
+        <h2 class="commission-title">
+          One system.<br />
+          Many <em>surfaces.</em>
+        </h2>
+      </div>
+      <div>
+        <p class="commission-copy">
+          Order to Chaos is a generative design system rather than a
+          single artwork. Its gradient language can be adapted
+          for fashion, textile development and other surface-oriented
+          contexts — while maintaining a computational origin.
+        </p>
+        <div class="service-list">
+          <div class="service-item">
+            <span class="num">i</span>
+            <div>
+              <span class="title">Licensing</span>
+              <span class="desc">Existing seeds from the archive, licensed for production use.</span>
+            </div>
+          </div>
+          <div class="service-item">
+            <span class="num">ii</span>
+            <div>
+              <span class="title">Commission</span>
+              <span class="desc">New compositions designed to your palette, repeat and product.</span>
+            </div>
+          </div>
+          <div class="service-item">
+            <span class="num">iii</span>
+            <div>
+              <span class="title">Systems</span>
+              <span class="desc">A private generative tool built for your studio's ongoing use.</span>
+            </div>
+          </div>
+        </div>
+        <a class="contact-cta" href="mailto:reyhanehdaneshdoost@gmail.com?subject=Order%20to%20Chaos%20—%20Collaboration">Begin a Conversation</a>
+      </div>
+    </div>
+
+    <div class="mockup-gallery">
+      <div class="mockup-head">
+        <span class="eyebrow">Applied · Order to Chaos</span>
+        <h3 class="mockup-title">
+          The same seed,<br />
+          <em>three surfaces.</em>
+        </h3>
+      </div>
+      <div class="mockup-grid">
+        <figure class="mockup-item">
+          <div class="mockup-frame">
+            <img src="images/tote.png" alt="Order to Chaos tote bag — applied composition" loading="lazy" />
+          </div>
+          <figcaption>
+            <span class="mockup-id">01 / Tote</span>
+            <span class="mockup-seed">Seed 40621920</span>
+          </figcaption>
+        </figure>
+        <figure class="mockup-item">
+          <div class="mockup-frame">
+            <img src="images/tee.png" alt="Order to Chaos t-shirt — applied composition" loading="lazy" />
+          </div>
+          <figcaption>
+            <span class="mockup-id">02 / Apparel</span>
+            <span class="mockup-seed">Seed 40621920</span>
+          </figcaption>
+        </figure>
+        <figure class="mockup-item">
+          <div class="mockup-frame">
+            <img src="images/cushion.png" alt="Order to Chaos cushion — applied composition" loading="lazy" />
+          </div>
+          <figcaption>
+            <span class="mockup-id">03 / Interior</span>
+            <span class="mockup-seed">Seed 40621920</span>
+          </figcaption>
+        </figure>
+      </div>
+      <p class="mockup-note">
+        Each surface is drawn from the same numeric seed —
+        reproducible, licensable, adaptable to your brief.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer class="colophon page">
+  <div class="col">
+    <span class="col-mark">Order to <em>Chaos</em></span>
+    <p>
+      A catalogue of computational gradient compositions,
+      published as an open series.
+    </p>
+  </div>
+  <div class="col">
+    <span class="col-title">Catalogue</span>
+    <a href="#statement">Statement</a>
+    <a href="#work">Plate 008</a>
+    <a href="#application">Surfaces</a>
+    <a href="#process">Process</a>
+    <a href="#archive">Archive</a>
+    <a href="#commission">Commission</a>
+  </div>
+  <div class="col">
+    <span class="col-title">Studio</span>
+    <a href="mailto:reyhanehdaneshdoost@gmail.com">reyhanehdaneshdoost@gmail.com</a>
+    <a href="https://reyrove.github.io/">Website</a>
+    <a href="https://www.instagram.com/rey._.rove/">Instagram</a>
+    <a href="https://www.linkedin.com/in/reyhaneh-daneshdoost-730481160/">LinkedIn</a>
+    <a href="https://x.com/reyrove">X</a>
+  </div>
+  <div class="col">
+    <span class="col-title">Legal</span>
+    <a href="#" data-legal="licensing">Licensing</a>
+    <a href="#" data-legal="terms">Terms</a>
+    <a href="#" data-legal="credits">Credits</a>
+  </div>
+  <div class="colophon-end">
+    <span>© <span id="year"></span> Order to Chaos · All compositions reproducible by seed</span>
+    <span class="mark">Generative Gradient Studies</span>
+  </div>
+</footer>
+
+<div class="legal-modal" id="legalModal" aria-hidden="true">
+  <div class="legal-overlay" data-close></div>
+  <div class="legal-dialog" role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+    <button class="legal-close" type="button" data-close aria-label="Close">×</button>
+    <span class="legal-eyebrow" id="legalEyebrow">Legal</span>
+    <h3 class="legal-title" id="legalTitle">—</h3>
+    <div class="legal-body" id="legalBody"></div>
+    <div class="legal-foot">
+      <span>Order to Chaos</span>
+      <a href="mailto:reyhanehdaneshdoost@gmail.com">reyhanehdaneshdoost@gmail.com</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ORDER TO CHAOS — GENERATIVE GRADIENT COMPOSITIONS
+//
+// Same seed → many surfaces:
+//   • Cover, Plate, Frame — same seed
+//   • All 4 surfaces (Print, Scarf, Textile, Wall) — same seed
+//   • Archive — 8 unique seeds
+//
+// Rectangular surfaces tile the square composition to fill.
+//
+// Generative engine (preserved from source):
+//   • 80 × 80 grid, drift from order (left) to chaos (right)
+//   • Order: sine/cosine lattice + radial threshold
+//   • Chaos: 2D Perlin noise + random flat term
+//   • Per-seed harmonic palette (complementary / analogous / triadic)
+//   • Per-cell shape (rect / ellipse / triangle), size, rotation
+//   • Scattered glow effect behind the cells
+// ============================================================
+
+const prefix = 'Order-to-Chaos';
+let seed = Math.floor(Math.random() * 2147483647);
+
+function seedLabel(n) { return String(n).slice(-8); }
+
+class SeededRandom {
+  constructor(s) { this.state = (Math.abs(s) % 2147483647) || 1; }
+  rand() { this.state = (this.state * 9301 + 49297) % 233280; return this.state / 233280; }
+  range(min, max) { return this.rand() * (max - min) + min; }
+  int(min, max) { return Math.floor(this.range(min, max + 1)); }
+  pick(arr) { return arr[Math.floor(this.rand() * arr.length)]; }
+}
+
+const COLS = 80;
+const ROWS = 80;
+
+const HARMONY_NAMES = ['Complementary', 'Analogous', 'Triadic'];
+
+// ============================================================
+// SKETCH FACTORY
+// tile: { cols, rows } — repeat the square composition N times
+// ============================================================
+function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
+  const stopAfter = maxFrames || Infinity;
+  const tileCols = (tile && tile.cols) || 1;
+  const tileRows = (tile && tile.rows) || 1;
+
+  let canvasW = 0;
+  let canvasH = 0;
+  let frameCount = 0;
+
+  return function(p) {
+    p.setup = function() {
+      const slot = document.getElementById(slotId);
+      if (!slot) return;
+      const rect = slot.getBoundingClientRect();
+      canvasW = Math.max(80, Math.floor(rect.width));
+      canvasH = Math.max(80, Math.floor(rect.height));
+
+      p.createCanvas(canvasW, canvasH);
+      p.pixelDensity(1);
+      p.colorMode(p.HSB, 360, 100, 100, 1);
+      p.rectMode(p.CENTER);
+      p.noStroke();
+      p.noLoop();
+
+      const canvasEl = p.canvas;
+      canvasEl.style.position = 'absolute';
+      canvasEl.style.top = '0';
+      canvasEl.style.left = '0';
+      canvasEl.style.width = '100%';
+      canvasEl.style.height = '100%';
+      canvasEl.style.maxWidth = '100%';
+      canvasEl.style.maxHeight = '100%';
+      canvasEl.style.display = 'block';
+
+      if (isMaster) {
+        // Pre-compute the harmony type for the metadata display
+        const sr = new SeededRandom(seedValue);
+        // Consume the same sequence as drawComposition: bgHue, bgSat, bgBri, baseHue, harmony
+        sr.rand(); sr.rand(); sr.rand();
+        sr.rand();
+        const harmony = sr.int(0, 2);
+        features.harmony = HARMONY_NAMES[harmony];
+        features.palette = '4 colours';
+        updateUI();
+      }
+
+      frameCount = 0;
+    };
+
+    p.draw = function() {
+      if (frameCount >= stopAfter) {
+        p.noLoop();
+        return;
+      }
+
+      // Tile composition
+      const tileW = canvasW / tileCols;
+      const tileH = canvasH / tileRows;
+      const tileSize = Math.min(tileW, tileH);
+
+      for (let ty = 0; ty < tileRows; ty++) {
+        for (let tx = 0; tx < tileCols; tx++) {
+          const ox = tx * tileW + (tileW - tileSize) / 2;
+          const oy = ty * tileH + (tileH - tileSize) / 2;
+
+          p.push();
+          p.translate(ox, oy);
+          drawComposition(p, tileSize, seedValue);
+          p.pop();
+        }
+      }
+
+      frameCount++;
+    };
+  };
+
+  // ---- Draw the composition into a square of side `size` ----
+  function drawComposition(p, size, seedValue) {
+    const sr = new SeededRandom(seedValue);
+    const cs = size;
+    const cellSize = cs / COLS;
+
+    // ---- Palette (must match setup order for master) ----
+    const bgHue = sr.rand() * 360;
+    const bgSaturation = sr.rand() * 15 + 15;
+    const bgBrightness = sr.rand() * 10 + 10;
+
+    const baseHue = sr.rand() * 360;
+    const harmony = sr.int(0, 2);
+
+    const colors = [];
+    for (let i = 0; i < 4; i++) {
+      let hue;
+      if (harmony === 0) hue = (baseHue + 180 * i) % 360;
+      else if (harmony === 1) hue = (baseHue + i * 30) % 360;
+      else hue = (baseHue + i * 120) % 360;
+
+      const sat = sr.rand() * 30 + 60;
+      const bri = sr.rand() * 30 + 60;
+      colors.push([hue, sat, bri]);
+    }
+
+    // ---- Grid initialization (order → chaos gradient) ----
+    const grid = Array.from({ length: COLS }, () => Array(ROWS).fill(0));
+
+    // Use a local noise function seeded via the SR — we build a simple
+    // value-noise approximation with a small permutation table.
+    const noiseTable = buildNoiseTable(sr);
+
+    for (let i = 0; i < COLS; i++) {
+      for (let j = 0; j < ROWS; j++) {
+        const nx = i / COLS * 3;
+        const ny = j / ROWS * 3;
+        const dx = i / COLS - 0.5;
+        const dy = j / ROWS - 0.5;
+        const distance = Math.sqrt(dx * dx + dy * dy) * 2;
+
+        const t = i / (COLS - 1);
+
+        // ORDER component
+        const orderVal = Math.sin(nx * 10) * Math.cos(ny * 10) * 0.5 + 0.5;
+        const orderThreshold = 0.45 + Math.sin(distance * Math.PI * 2) * 0.2;
+
+        // DISORDER component
+        const disorderVal = sampleNoise(noiseTable, nx * 5, ny * 5);
+        const chaos = sr.rand() * 0.6;
+        const disorderThreshold = 0.5 + chaos - 0.3;
+
+        // Blend
+        const blendedVal = orderVal * (1 - t) + disorderVal * t;
+        const blendedThreshold = orderThreshold * (1 - t) + disorderThreshold * t;
+
+        grid[i][j] = blendedVal > blendedThreshold ? 1 : 0;
+      }
+    }
+
+    // ---- Background ----
+    p.background(bgHue, bgSaturation, bgBrightness);
+
+    // ---- Overlay ----
+    p.drawingContext.globalAlpha = 0.15;
+    p.fill(bgHue, bgSaturation, bgBrightness);
+    p.noStroke();
+    p.rect(cs / 2, cs / 2, cs, cs);
+    p.drawingContext.globalAlpha = 1;
+
+    // ---- Render cells ----
+    for (let i = 0; i < COLS; i++) {
+      for (let j = 0; j < ROWS; j++) {
+        if (grid[i][j] === 1) {
+          const c = colors[sr.int(0, colors.length - 1)];
+          const shapeType = sr.int(0, 2);
+          const sizeVar = 0.4 + sr.rand() * 1.2;
+          const renderSize = cellSize * sizeVar;
+          const angle = sr.rand() * Math.PI / 2;
+
+          const hFinal = ((c[0] + sr.rand() * 40 - 20) % 360 + 360) % 360;
+          const sFinal = Math.max(40, Math.min(100, c[1] + sr.rand() * 20 - 10));
+          const bFinal = Math.max(40, Math.min(100, c[2] + sr.rand() * 20 - 10));
+
+          p.fill(hFinal, sFinal, bFinal);
+
+          p.push();
+          p.translate(i * cellSize + cellSize / 2, j * cellSize + cellSize / 2);
+          p.rotate(angle);
+
+          if (shapeType === 0) {
+            p.rect(0, 0, renderSize, renderSize);
+          } else if (shapeType === 1) {
+            p.ellipse(0, 0, renderSize, renderSize);
+          } else {
+            p.triangle(
+              -renderSize / 2, renderSize / 2,
+              renderSize / 2, renderSize / 2,
+              0, -renderSize / 2
+            );
+          }
+          p.pop();
+        }
+      }
+    }
+
+    // ---- Scattered glow ----
+    p.drawingContext.globalAlpha = 0.1;
+    for (let i = 0; i < COLS; i += 2) {
+      for (let j = 0; j < ROWS; j += 2) {
+        if (grid[i][j] === 1 && sr.rand() > 0.7) {
+          const effectHue = bgHue * (1 - i / COLS) + ((bgHue + 60) % 360) * (i / COLS);
+          p.fill(effectHue, 50, 80);
+          p.ellipse(
+            i * cellSize + cellSize / 2,
+            j * cellSize + cellSize / 2,
+            cellSize * 2
+          );
+        }
+      }
+    }
+    p.drawingContext.globalAlpha = 1;
+  }
+}
+
+// ---- Simple seeded value-noise helper ----
+function buildNoiseTable(sr) {
+  const size = 256;
+  const table = new Float32Array(size);
+  for (let i = 0; i < size; i++) table[i] = sr.rand();
+  return table;
+}
+
+function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function sampleNoise(table, x, y) {
+  const size = table.length;
+  const xi = Math.floor(x) & (size - 1);
+  const yi = Math.floor(y) & (size - 1);
+  const xf = x - Math.floor(x);
+  const yf = y - Math.floor(y);
+
+  const v00 = table[(xi + yi * 57) & (size - 1)];
+  const v10 = table[((xi + 1) + yi * 57) & (size - 1)];
+  const v01 = table[(xi + (yi + 1) * 57) & (size - 1)];
+  const v11 = table[((xi + 1) + (yi + 1) * 57) & (size - 1)];
+
+  const u = fade(xf);
+  const v = fade(yf);
+
+  return lerp(lerp(v00, v10, u), lerp(v01, v11, u), v);
+}
+
+// ============================================================
+// APP STATE
+// ============================================================
+const features = {};
+let coverP5 = null;
+let plateP5 = null;
+let frameP5 = null;
+const surfaceP5 = {};
+const archiveP5 = [];
+
+function whenSlotReady(elOrId, cb, attemptsLeft) {
+  attemptsLeft = attemptsLeft === undefined ? 20 : attemptsLeft;
+  const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+  if (!el) {
+    if (attemptsLeft > 0) requestAnimationFrame(() => whenSlotReady(elOrId, cb, attemptsLeft - 1));
+    return;
+  }
+  const rect = el.getBoundingClientRect();
+  if (rect.width >= 40 && rect.height >= 40) { cb(el, rect); return; }
+  if (attemptsLeft > 0) {
+    requestAnimationFrame(() => whenSlotReady(elOrId, cb, attemptsLeft - 1));
+  } else {
+    cb(el, { width: 320, height: 320 });
+  }
+}
+
+const visibilityState = new WeakMap();
+
+function attachVisibilityObserver(p5Instance, element) {
+  if (!('IntersectionObserver' in window) || !p5Instance) return;
+  visibilityState.set(p5Instance, true);
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!p5Instance) return;
+      if (p5Instance._frozen) return;
+      if (entry.isIntersecting) {
+        visibilityState.set(p5Instance, true);
+        p5Instance.loop();
+      } else {
+        visibilityState.set(p5Instance, false);
+        p5Instance.noLoop();
+      }
+    });
+  }, { threshold: 0 });
+  obs.observe(element);
+}
+
+function createLiveP5({ slotId, seedValue, isMaster, maxFrames, tile, onCreated }) {
+  whenSlotReady(slotId, (slot) => {
+    slot.querySelectorAll('canvas').forEach(c => c.remove());
+    const inst = new p5(makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }), slot);
+    inst._frozen = false;
+    attachVisibilityObserver(inst, slot);
+    if (onCreated) onCreated(inst);
+  });
+}
+
+function drawPlate() {
+  if (plateP5) { plateP5.remove(); plateP5 = null; }
+  const slot = document.getElementById('plate-slot');
+  if (slot) slot.innerHTML = '';
+  createLiveP5({
+    slotId: 'plate-slot',
+    seedValue: seed,
+    isMaster: true,
+    maxFrames: 2,
+    tile: { cols: 1, rows: 1 },
+    onCreated: (inst) => { plateP5 = inst; }
+  });
+}
+
+function drawCover() {
+  if (coverP5) { coverP5.remove(); coverP5 = null; }
+  const slot = document.getElementById('cover-slot');
+  if (slot) slot.innerHTML = '';
+  createLiveP5({
+    slotId: 'cover-slot',
+    seedValue: seed,
+    isMaster: false,
+    maxFrames: 2,
+    tile: { cols: 1, rows: 1 },
+    onCreated: (inst) => { coverP5 = inst; }
+  });
+}
+
+function drawFramedPlate() {
+  if (frameP5) { frameP5.remove(); frameP5 = null; }
+  const slot = document.getElementById('frame-slot');
+  if (slot) slot.innerHTML = '';
+  createLiveP5({
+    slotId: 'frame-slot',
+    seedValue: seed,
+    isMaster: false,
+    maxFrames: 2,
+    tile: { cols: 1, rows: 1 },
+    onCreated: (inst) => { frameP5 = inst; }
+  });
+}
+
+// ============================================================
+// SURFACES — same seed as plate, tiled to fill aspect ratio
+// ============================================================
+const surfaceDefs = [
+  { id: 'surfacePrint',   wrapId: 'wrap-surfacePrint',   tile: { cols: 1, rows: 1 } },
+  { id: 'surfaceScarf',   wrapId: 'wrap-surfaceScarf',   tile: { cols: 3, rows: 1 } },
+  { id: 'surfaceTextile', wrapId: 'wrap-surfaceTextile', tile: { cols: 2, rows: 2 } },
+  { id: 'surfaceWall',    wrapId: 'wrap-surfaceWall',    tile: { cols: 1, rows: 2 } }
+];
+
+function drawSurfaces() {
+  surfaceDefs.forEach(def => {
+    const wrap = document.getElementById(def.wrapId);
+    if (!wrap) return;
+
+    if (surfaceP5[def.id]) {
+      surfaceP5[def.id].remove();
+      surfaceP5[def.id] = null;
+    }
+    wrap.querySelectorAll('canvas').forEach(c => c.remove());
+
+    let slot = wrap.querySelector('.canvas-slot');
+    if (!slot) {
+      slot = document.createElement('div');
+      slot.className = 'canvas-slot';
+      wrap.appendChild(slot);
+    } else {
+      slot.innerHTML = '';
+    }
+
+    whenSlotReady(wrap, () => {
+      surfaceP5[def.id] = new p5(
+        makeSketch({
+          slotId: slot.id || (slot.id = def.id + '-slot'),
+          seedValue: seed,
+          isMaster: false,
+          maxFrames: 2,
+          tile: def.tile
+        }),
+        slot
+      );
+      surfaceP5[def.id]._frozen = true;
+    });
+  });
+}
+
+// ============================================================
+// ARCHIVE — 8 unique seeds
+// ============================================================
+const archiveSeeds = [];
+
+function initArchive() {
+  const grid = document.getElementById('archiveGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  archiveSeeds.length = 0;
+  archiveP5.length = 0;
+
+  const base = Date.now();
+  const used = new Set();
+
+  for (let i = 0; i < 8; i++) {
+    let s;
+    do { s = base + Math.floor(Math.random() * 1000000) + i * 97; } while (used.has(s));
+    used.add(s);
+    archiveSeeds.push(s);
+
+    const item = document.createElement('div');
+    item.className = 'archive-item';
+    item.setAttribute('data-seed', seedLabel(s));
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', 'Load seed ' + seedLabel(s));
+
+    const slot = document.createElement('div');
+    slot.className = 'canvas-slot';
+    slot.id = 'archive-slot-' + i;
+    item.appendChild(slot);
+
+    item.addEventListener('click', () => loadArchiveSeed(i));
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        loadArchiveSeed(i);
+      }
+    });
+    grid.appendChild(item);
+  }
+  drawArchive();
+}
+
+function drawArchive() {
+  const grid = document.getElementById('archiveGrid');
+  if (!grid) return;
+  const items = grid.querySelectorAll('.archive-item');
+
+  items.forEach((item, i) => {
+    const slot = document.getElementById('archive-slot-' + i);
+    if (!slot) return;
+
+    if (archiveP5[i]) {
+      archiveP5[i].remove();
+      archiveP5[i] = null;
+    }
+    slot.innerHTML = '';
+
+    whenSlotReady(item, () => {
+      archiveP5[i] = new p5(
+        makeSketch({
+          slotId: 'archive-slot-' + i,
+          seedValue: archiveSeeds[i],
+          isMaster: false,
+          maxFrames: 2,
+          tile: { cols: 1, rows: 1 }
+        }),
+        slot
+      );
+      archiveP5[i]._frozen = true;
+    });
+  });
+}
+
+function loadArchiveSeed(index) {
+  seed = archiveSeeds[index];
+  drawPlate();
+  drawCover();
+  drawFramedPlate();
+  drawSurfaces();
+  updateUI();
+  document.getElementById('work').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ============================================================
+// UI
+// ============================================================
+function updateUI() {
+  const s = document.getElementById('seedDisplay');
+  const h = document.getElementById('harmonyDisplay');
+  const pal = document.getElementById('paletteDisplay');
+  if (s) s.textContent = seedLabel(seed);
+  if (h) h.textContent = features.harmony || '—';
+  if (pal) pal.textContent = features.palette || '—';
+}
+
+function regenerate() {
+  seed = Math.floor(Math.random() * 2147483647);
+  drawPlate();
+  drawCover();
+  drawFramedPlate();
+  drawSurfaces();
+  updateUI();
+}
+
+function autoDownloadCanvas() {
+  const slot = document.getElementById('plate-slot');
+  const target = slot ? slot.querySelector('canvas') : null;
+  if (!target) return;
+  const link = document.createElement('a');
+  link.download = prefix + '_Seed' + seedLabel(seed) + '.png';
+  link.href = target.toDataURL('image/png', 1.0);
+  link.click();
+}
+
+let resizeTmr = null;
+function handleResize() {
+  clearTimeout(resizeTmr);
+  resizeTmr = setTimeout(() => {
+    drawPlate();
+    drawCover();
+    drawFramedPlate();
+    drawSurfaces();
+    drawArchive();
+  }, 250);
+}
+
+const legalContent = {
+  licensing: {
+    eyebrow: 'Legal · 01',
+    title: 'Licensing',
+    body: `<p>All Order to Chaos compositions are <strong>seed-documented</strong> and available for licensing across textile, surface, and apparel applications.</p><p>Standard licenses cover single-product production runs. For commercial use, custom editions, or exclusive rights, please contact the studio directly to discuss scope and terms.</p><p>Each license is issued against a specific seed ID. Regeneration of the same seed produces the identical composition.</p>`
+  },
+  terms: {
+    eyebrow: 'Legal · 02',
+    title: 'Terms',
+    body: `<p>All artwork, code, and generative systems presented in this catalogue are the <strong>intellectual property of the artist</strong>.</p><p>Compositions may not be reproduced, redistributed, resold, or adapted without a written license.</p>`
+  },
+  credits: {
+    eyebrow: 'Legal · 03',
+    title: 'Credits',
+    body: `<p><strong>Design &amp; Generative System</strong><br>Reyhaneh Daneshdoost</p><p><strong>Typefaces</strong><br>Cormorant Garamond · DM Mono</p><p><strong>Edition</strong><br>Order to Chaos — Autumn 2026</p>`
+  }
+};
+
+function initLegalModal() {
+  const modal = document.getElementById('legalModal');
+  const eyebrow = document.getElementById('legalEyebrow');
+  const titleEl = document.getElementById('legalTitle');
+  const bodyEl = document.getElementById('legalBody');
+  if (!modal) return;
+  function openLegal(key) {
+    const data = legalContent[key];
+    if (!data) return;
+    eyebrow.textContent = data.eyebrow;
+    titleEl.textContent = data.title;
+    bodyEl.innerHTML = data.body;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLegal() {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+  document.querySelectorAll('[data-legal]').forEach(link => {
+    link.addEventListener('click', e => { e.preventDefault(); openLegal(link.getAttribute('data-legal')); });
+  });
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeLegal));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('open')) closeLegal(); });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea')) return;
+  const k = e.key.toLowerCase();
+  if (k === 's') { e.preventDefault(); autoDownloadCanvas(); }
+  if (k === 'r') { e.preventDefault(); regenerate(); }
+});
+
+document.getElementById('controlsBar')?.addEventListener('click', regenerate);
+document.getElementById('saveBtn')?.addEventListener('click', autoDownloadCanvas);
+
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', () => setTimeout(handleResize, 400));
+
+document.addEventListener('visibilitychange', () => {
+  [plateP5, coverP5, frameP5].forEach(inst => {
+    if (!inst) return;
+    if (document.hidden) inst.noLoop();
+    else if (visibilityState.get(inst) !== false) inst.loop();
+  });
+});
+
+function init() {
+  const y = document.getElementById('year');
+  if (y) y.textContent = new Date().getFullYear();
+
+  seed = Math.floor(Math.random() * 2147483647);
+
+  drawPlate();
+  drawCover();
+  drawFramedPlate();
+  drawSurfaces();
+  initArchive();
+  updateUI();
+  initLegalModal();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+window.regenerate = regenerate;
+window.autoDownloadCanvas = autoDownloadCanvas;
+</script>
+
+</body>
+</html>
