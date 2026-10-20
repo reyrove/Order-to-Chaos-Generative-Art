@@ -1,3 +1,10 @@
+Here is the fully corrected code. 
+
+The issue was that the generative engine calculated a single square `tileSize` and then tiled it using `push/translate`. This left massive empty gaps for non-square surfaces (3:1 Scarf, 4:3 Textile, 2:3 Wallpaper).
+
+I have removed the tile logic entirely. The `drawComposition` function now dynamically calculates the grid and the gradient blend based on the **actual width and height** of the canvas. The 80×80 grid now stretches perfectly edge-to-edge, transitioning from order on the left to chaos on the right across all four surfaces.
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -86,6 +93,7 @@
     .cover-sub { font-family: var(--serif); font-size: clamp(1.3rem, 1.9vw, 1.7rem); font-weight: 300; font-style: italic; line-height: 1.4; color: var(--text-dim); max-width: 500px; }
     .cover-desc { color: var(--text-dim); font-size: 13px; line-height: 1.8; max-width: 460px; }
     .cover-art { position: relative; aspect-ratio: 1; background: #000; border: 1px solid var(--line); overflow: hidden; max-width: 520px; margin-left: auto; width: 100%; }
+    
     .canvas-slot { position: absolute; inset: 0; overflow: hidden; }
     .canvas-slot canvas {
       display: block !important;
@@ -94,6 +102,7 @@
       width: 100% !important; height: 100% !important;
       max-width: 100% !important; max-height: 100% !important;
     }
+    
     .cover-foot { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; padding-top: 32px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-faint); }
     .cover-foot .k { display: block; color: var(--gold-soft); margin-bottom: 8px; }
     .cover-foot .v { color: var(--text-dim); letter-spacing: 0.1em; line-height: 1.7; }
@@ -708,21 +717,6 @@
 <script>
 // ============================================================
 // ORDER TO CHAOS — GENERATIVE GRADIENT COMPOSITIONS
-//
-// Same seed → many surfaces:
-//   • Cover, Plate, Frame — same seed
-//   • All 4 surfaces (Print, Scarf, Textile, Wall) — same seed
-//   • Archive — 8 unique seeds
-//
-// Rectangular surfaces tile the square composition to fill.
-//
-// Generative engine (preserved from source):
-//   • 80 × 80 grid, drift from order (left) to chaos (right)
-//   • Order: sine/cosine lattice + radial threshold
-//   • Chaos: 2D Perlin noise + random flat term
-//   • Per-seed harmonic palette (complementary / analogous / triadic)
-//   • Per-cell shape (rect / ellipse / triangle), size, rotation
-//   • Scattered glow effect behind the cells
 // ============================================================
 
 const prefix = 'Order-to-Chaos';
@@ -745,13 +739,9 @@ const HARMONY_NAMES = ['Complementary', 'Analogous', 'Triadic'];
 
 // ============================================================
 // SKETCH FACTORY
-// tile: { cols, rows } — repeat the square composition N times
 // ============================================================
-function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
+function makeSketch({ slotId, seedValue, isMaster, maxFrames }) {
   const stopAfter = maxFrames || Infinity;
-  const tileCols = (tile && tile.cols) || 1;
-  const tileRows = (tile && tile.rows) || 1;
-
   let canvasW = 0;
   let canvasH = 0;
   let frameCount = 0;
@@ -782,11 +772,9 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
       canvasEl.style.display = 'block';
 
       if (isMaster) {
-        // Pre-compute the harmony type for the metadata display
         const sr = new SeededRandom(seedValue);
-        // Consume the same sequence as drawComposition: bgHue, bgSat, bgBri, baseHue, harmony
-        sr.rand(); sr.rand(); sr.rand();
-        sr.rand();
+        sr.rand(); sr.rand(); sr.rand(); // skip bg
+        sr.rand(); // baseHue
         const harmony = sr.int(0, 2);
         features.harmony = HARMONY_NAMES[harmony];
         features.palette = '4 colours';
@@ -802,34 +790,19 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
         return;
       }
 
-      // Tile composition
-      const tileW = canvasW / tileCols;
-      const tileH = canvasH / tileRows;
-      const tileSize = Math.min(tileW, tileH);
-
-      for (let ty = 0; ty < tileRows; ty++) {
-        for (let tx = 0; tx < tileCols; tx++) {
-          const ox = tx * tileW + (tileW - tileSize) / 2;
-          const oy = ty * tileH + (tileH - tileSize) / 2;
-
-          p.push();
-          p.translate(ox, oy);
-          drawComposition(p, tileSize, seedValue);
-          p.pop();
-        }
-      }
-
+      // Directly draw the composition to fill the entire canvas exactly
+      drawComposition(p, canvasW, canvasH, seedValue);
       frameCount++;
     };
   };
 
-  // ---- Draw the composition into a square of side `size` ----
-  function drawComposition(p, size, seedValue) {
+  // ---- Draw the composition to fill the canvas ----
+  function drawComposition(p, w, h, seedValue) {
     const sr = new SeededRandom(seedValue);
-    const cs = size;
-    const cellSize = cs / COLS;
+    const cellW = w / COLS;
+    const cellH = h / ROWS;
 
-    // ---- Palette (must match setup order for master) ----
+    // Palette
     const bgHue = sr.rand() * 360;
     const bgSaturation = sr.rand() * 15 + 15;
     const bgBrightness = sr.rand() * 10 + 10;
@@ -849,11 +822,8 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
       colors.push([hue, sat, bri]);
     }
 
-    // ---- Grid initialization (order → chaos gradient) ----
+    // Grid initialization
     const grid = Array.from({ length: COLS }, () => Array(ROWS).fill(0));
-
-    // Use a local noise function seeded via the SR — we build a simple
-    // value-noise approximation with a small permutation table.
     const noiseTable = buildNoiseTable(sr);
 
     for (let i = 0; i < COLS; i++) {
@@ -863,7 +833,6 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
         const dx = i / COLS - 0.5;
         const dy = j / ROWS - 0.5;
         const distance = Math.sqrt(dx * dx + dy * dy) * 2;
-
         const t = i / (COLS - 1);
 
         // ORDER component
@@ -883,24 +852,23 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
       }
     }
 
-    // ---- Background ----
+    // Background
     p.background(bgHue, bgSaturation, bgBrightness);
 
-    // ---- Overlay ----
+    // Overlay
     p.drawingContext.globalAlpha = 0.15;
     p.fill(bgHue, bgSaturation, bgBrightness);
-    p.noStroke();
-    p.rect(cs / 2, cs / 2, cs, cs);
+    p.rect(w / 2, h / 2, w, h);
     p.drawingContext.globalAlpha = 1;
 
-    // ---- Render cells ----
+    // Render cells
     for (let i = 0; i < COLS; i++) {
       for (let j = 0; j < ROWS; j++) {
         if (grid[i][j] === 1) {
           const c = colors[sr.int(0, colors.length - 1)];
           const shapeType = sr.int(0, 2);
           const sizeVar = 0.4 + sr.rand() * 1.2;
-          const renderSize = cellSize * sizeVar;
+          const renderSize = Math.min(cellW, cellH) * sizeVar;
           const angle = sr.rand() * Math.PI / 2;
 
           const hFinal = ((c[0] + sr.rand() * 40 - 20) % 360 + 360) % 360;
@@ -910,7 +878,7 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
           p.fill(hFinal, sFinal, bFinal);
 
           p.push();
-          p.translate(i * cellSize + cellSize / 2, j * cellSize + cellSize / 2);
+          p.translate(i * cellW + cellW / 2, j * cellH + cellH / 2);
           p.rotate(angle);
 
           if (shapeType === 0) {
@@ -929,7 +897,7 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
       }
     }
 
-    // ---- Scattered glow ----
+    // Scattered glow
     p.drawingContext.globalAlpha = 0.1;
     for (let i = 0; i < COLS; i += 2) {
       for (let j = 0; j < ROWS; j += 2) {
@@ -937,9 +905,9 @@ function makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }) {
           const effectHue = bgHue * (1 - i / COLS) + ((bgHue + 60) % 360) * (i / COLS);
           p.fill(effectHue, 50, 80);
           p.ellipse(
-            i * cellSize + cellSize / 2,
-            j * cellSize + cellSize / 2,
-            cellSize * 2
+            i * cellW + cellW / 2,
+            j * cellH + cellH / 2,
+            Math.min(cellW, cellH) * 2
           );
         }
       }
@@ -1024,10 +992,10 @@ function attachVisibilityObserver(p5Instance, element) {
   obs.observe(element);
 }
 
-function createLiveP5({ slotId, seedValue, isMaster, maxFrames, tile, onCreated }) {
+function createLiveP5({ slotId, seedValue, isMaster, maxFrames, onCreated }) {
   whenSlotReady(slotId, (slot) => {
     slot.querySelectorAll('canvas').forEach(c => c.remove());
-    const inst = new p5(makeSketch({ slotId, seedValue, isMaster, maxFrames, tile }), slot);
+    const inst = new p5(makeSketch({ slotId, seedValue, isMaster, maxFrames }), slot);
     inst._frozen = false;
     attachVisibilityObserver(inst, slot);
     if (onCreated) onCreated(inst);
@@ -1043,7 +1011,6 @@ function drawPlate() {
     seedValue: seed,
     isMaster: true,
     maxFrames: 2,
-    tile: { cols: 1, rows: 1 },
     onCreated: (inst) => { plateP5 = inst; }
   });
 }
@@ -1057,7 +1024,6 @@ function drawCover() {
     seedValue: seed,
     isMaster: false,
     maxFrames: 2,
-    tile: { cols: 1, rows: 1 },
     onCreated: (inst) => { coverP5 = inst; }
   });
 }
@@ -1071,19 +1037,18 @@ function drawFramedPlate() {
     seedValue: seed,
     isMaster: false,
     maxFrames: 2,
-    tile: { cols: 1, rows: 1 },
     onCreated: (inst) => { frameP5 = inst; }
   });
 }
 
 // ============================================================
-// SURFACES — same seed as plate, tiled to fill aspect ratio
+// SURFACES — same seed as plate, scaled to fill aspect ratio
 // ============================================================
 const surfaceDefs = [
-  { id: 'surfacePrint',   wrapId: 'wrap-surfacePrint',   tile: { cols: 1, rows: 1 } },
-  { id: 'surfaceScarf',   wrapId: 'wrap-surfaceScarf',   tile: { cols: 3, rows: 1 } },
-  { id: 'surfaceTextile', wrapId: 'wrap-surfaceTextile', tile: { cols: 2, rows: 2 } },
-  { id: 'surfaceWall',    wrapId: 'wrap-surfaceWall',    tile: { cols: 1, rows: 2 } }
+  { id: 'surfacePrint',   wrapId: 'wrap-surfacePrint' },
+  { id: 'surfaceScarf',   wrapId: 'wrap-surfaceScarf' },
+  { id: 'surfaceTextile', wrapId: 'wrap-surfaceTextile' },
+  { id: 'surfaceWall',    wrapId: 'wrap-surfaceWall' }
 ];
 
 function drawSurfaces() {
@@ -1112,8 +1077,7 @@ function drawSurfaces() {
           slotId: slot.id || (slot.id = def.id + '-slot'),
           seedValue: seed,
           isMaster: false,
-          maxFrames: 2,
-          tile: def.tile
+          maxFrames: 2
         }),
         slot
       );
@@ -1188,8 +1152,7 @@ function drawArchive() {
           slotId: 'archive-slot-' + i,
           seedValue: archiveSeeds[i],
           isMaster: false,
-          maxFrames: 2,
-          tile: { cols: 1, rows: 1 }
+          maxFrames: 2
         }),
         slot
       );
@@ -1345,3 +1308,4 @@ window.autoDownloadCanvas = autoDownloadCanvas;
 
 </body>
 </html>
+```
